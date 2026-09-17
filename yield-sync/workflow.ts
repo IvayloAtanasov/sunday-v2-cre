@@ -49,9 +49,13 @@ export type Config = {
 	/**
 	 * Most vaults one run will read state for.
 	 *
-	 * A CRE execution gets a fixed number of chain reads and this costs one per vault, so the
-	 * cap is a budget, not a preference. Vaults beyond it keep their days until a later run,
-	 * which is why the order is deterministic rather than whatever the backend returned.
+	 * A CRE execution gets a fixed number of chain reads and this costs one per vault, so the cap
+	 * is a budget, not a preference.
+	 *
+	 * It is a hard ceiling on the system, not a queue. The list is sorted so every node agrees on
+	 * it, which also means the same vaults win every run: anything past the cap is never read and
+	 * never accrues. Exceeding it logs an error per starved vault and needs the cap raised or a
+	 * second receiver — not another run.
 	 */
 	maxVaultsPerRun: number
 	/** Price country key, as stored by the price collector. */
@@ -383,11 +387,13 @@ export const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): s
 
 	const addresses = allAddresses.slice(0, config.maxVaultsPerRun)
 
-	if (allAddresses.length > addresses.length) {
-		// Loud, because the dropped vaults accrue nothing until the budget or the cadence changes.
+	for (const starved of allAddresses.slice(config.maxVaultsPerRun)) {
+		// Not a deferral. The list is sorted for consensus, so the same vaults win every run and
+		// these never get read at all — they accrue nothing until the cap rises or they move to
+		// another receiver. Named individually so the log says which ones.
 		runtime.log(
-			`WARNING: ${allAddresses.length} vaults listed but only ${addresses.length} fit the ` +
-			`chain-read budget; ${allAddresses.length - addresses.length} will not be reported this run`,
+			`ERROR: ${starved} is beyond maxVaultsPerRun (${config.maxVaultsPerRun} of ` +
+			`${allAddresses.length} listed) and will never be reported by this workflow`,
 		)
 	}
 
