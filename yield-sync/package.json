@@ -1,14 +1,16 @@
 {
-  "name": "typescript-simple-template",
+  "name": "sunday-yield-sync",
   "version": "1.0.0",
   "main": "dist/main.js",
   "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "@chainlink/cre-sdk": "^1.21.1"
+    "@chainlink/cre-sdk": "^1.21.1",
+    "viem": "2.56.7"
   },
   "devDependencies": {
     "typescript": "5.9.3"

@@ -9,3 +9,6 @@ dist/
 # Secrets and RPC URLs referenced as ${VAR} from project.yaml
 .env
 *.env
+
+# cre build scratch
+.cre_build_tmp.js
