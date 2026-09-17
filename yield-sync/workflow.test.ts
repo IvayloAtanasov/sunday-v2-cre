@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { decodeAbiParameters, type Address } from 'viem'
 
-import { buildUpdates, encodeReport, netYieldMicro } from './workflow'
+import { buildUpdates, encodeReport, netYieldMicro, parseVaultAddresses } from './workflow'
 
 const DAY = 86_400
 
@@ -215,5 +215,34 @@ describe('encodeReport', () => {
 		expect(decoded).toHaveLength(2)
 		expect((decoded as typeof updates)[0].vault.toLowerCase()).toBe(VAULT_A.toLowerCase())
 		expect((decoded as typeof updates)[1].delta).toBe(-7_000n)
+	})
+})
+
+describe('parseVaultAddresses', () => {
+	test('normalises, dedupes and orders the backend list', () => {
+		const rows = [
+			{ vaultAddress: '0xBBBB111111111111111111111111111111111111' },
+			{ vaultAddress: ' 0xaaaa111111111111111111111111111111111111 ' },
+			{ vaultAddress: '0xBBBB111111111111111111111111111111111111' },
+		]
+
+		// Sorted, so which vaults fit the chain-read budget does not depend on Mongo's order.
+		expect(parseVaultAddresses(rows)).toEqual([
+			'0xaaaa111111111111111111111111111111111111',
+			'0xbbbb111111111111111111111111111111111111',
+		])
+	})
+
+	test('drops installations with no usable vault address', () => {
+		const rows = [
+			{ vaultAddress: '' },
+			{ vaultAddress: null },
+			{},
+			{ vaultAddress: 'not-an-address' },
+			{ vaultAddress: '0x1234' },
+			{ vaultAddress: '0xcccc111111111111111111111111111111111111' },
+		]
+
+		expect(parseVaultAddresses(rows)).toEqual(['0xcccc111111111111111111111111111111111111'])
 	})
 })

@@ -46,6 +46,14 @@ export type Config = {
 	receiverAddress: string
 	/** Origin of Sunday's API, no trailing slash. */
 	apiBaseUrl: string
+	/**
+	 * Most vaults one run will read state for.
+	 *
+	 * A CRE execution gets a fixed number of chain reads and this costs one per vault, so the
+	 * cap is a budget, not a preference. Vaults beyond it keep their days until a later run,
+	 * which is why the order is deterministic rather than whatever the backend returned.
+	 */
+	maxVaultsPerRun: number
 	/** Price country key, as stored by the price collector. */
 	country: string
 	/**
@@ -185,6 +193,34 @@ const fetchStationDays = (sendRequester: HTTPSendRequester, window: Window): Sta
 			energyMilliKwh: scaled(row.totalProductPower, 3),
 		}))
 		.sort((a, b) => a.dayTs - b.dayTs || a.stationId.localeCompare(b.stationId))
+}
+
+/**
+ * The vault addresses to price, from the backend's installation list.
+ *
+ * Deliberately the same list the indexer and the app read, rather than a second enumeration off
+ * the chain: an installation missing here already breaks those, so one source fails visibly
+ * instead of two sources drifting apart. It is only a list — every vault's station binding,
+ * phase and watermark still come from `vaultState`, and `onReport` rejects anything the receiver
+ * does not know, so a bad row here costs a vault its day but cannot misprice one.
+ */
+export const parseVaultAddresses = (rows: Array<{ vaultAddress?: string | null }>): string[] => {
+	const addresses = rows
+		.map((row) => (row.vaultAddress ?? '').trim().toLowerCase())
+		.filter((address) => /^0x[0-9a-f]{40}$/.test(address))
+
+	// Deduplicated and sorted so the read budget always spends itself on the same vaults,
+	// whatever order Mongo returned.
+	return [...new Set(addresses)].sort()
+}
+
+const fetchVaultAddresses = (sendRequester: HTTPSendRequester, window: Window): string[] => {
+	const response = sendRequester
+		.sendRequest({ method: 'GET', url: `${window.apiBaseUrl}/installations` })
+		.result()
+	requireOk(response, 'installations')
+
+	return parseVaultAddresses(bodyOf(response) as Array<{ vaultAddress?: string | null }>)
 }
 
 const fetchPriceDays = (sendRequester: HTTPSendRequester, window: Window): PriceDay[] => {
@@ -327,15 +363,6 @@ export const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): s
 
 	const receiver = receiverFor(config)
 
-	// Chain state is the record of what has been synced — Mongo is a read model now, and a day
-	// that failed on-chain must not look done.
-	const states = receiver.vaultStates(runtime) as readonly VaultState[]
-
-	if (states.length === 0) {
-		runtime.log('no vaults registered, nothing to report')
-		return 'no vaults'
-	}
-
 	const window: Window = {
 		fromISO: new Date((nowTs - config.lookbackDays * SECONDS_PER_DAY) * 1000).toISOString(),
 		toISO: new Date(nowTs * 1000).toISOString(),
@@ -344,6 +371,51 @@ export const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): s
 	}
 
 	const http = new HTTPClient()
+
+	const allAddresses = http
+		.sendRequest(runtime, fetchVaultAddresses, consensusIdenticalAggregation<string[]>())(window)
+		.result()
+
+	if (allAddresses.length === 0) {
+		runtime.log('no installations with a vault address, nothing to report')
+		return 'no vaults'
+	}
+
+	const addresses = allAddresses.slice(0, config.maxVaultsPerRun)
+
+	if (allAddresses.length > addresses.length) {
+		// Loud, because the dropped vaults accrue nothing until the budget or the cadence changes.
+		runtime.log(
+			`WARNING: ${allAddresses.length} vaults listed but only ${addresses.length} fit the ` +
+			`chain-read budget; ${allAddresses.length - addresses.length} will not be reported this run`,
+		)
+	}
+
+	// One read per vault. Chain state, not Mongo, is the record of what has been synced: a day
+	// that failed on-chain must not look done.
+	const states: VaultState[] = []
+
+	for (const address of addresses) {
+		const state = receiver.vaultState(runtime, address as Address)
+
+		if (!state.registered) {
+			// Listed by the backend but never registered here, so this receiver would reject it.
+			runtime.log(`skipped ${address}: not registered with this receiver`)
+			continue
+		}
+
+		states.push({
+			vault: address as Address,
+			stationId: state.stationId,
+			phase: state.phase,
+			lastRebasedAt: state.lastRebasedAt,
+		})
+	}
+
+	if (states.length === 0) {
+		runtime.log('no registered vaults among the listed installations')
+		return 'no vaults'
+	}
 
 	// Consensus over the reduced rows rather than the raw bodies: `_id`, `__v` and key order
 	// are noise that would only ever make identical aggregation fail.

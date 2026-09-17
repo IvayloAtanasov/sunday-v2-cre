@@ -4,6 +4,7 @@
   "isTestnet": true,
   "receiverAddress": "0x0000000000000000000000000000000000000000",
   "apiBaseUrl": "https://p3yujenss0.execute-api.eu-central-1.amazonaws.com/staging",
+  "maxVaultsPerRun": 14,
   "country": "BG",
   "lookbackDays": 7,
   "gasLimit": "2000000"

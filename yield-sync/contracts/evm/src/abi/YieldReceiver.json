@@ -195,18 +195,24 @@
     },
     {
       "type": "function",
-      "name": "vaultStates",
-      "inputs": [],
+      "name": "vaultState",
+      "inputs": [
+        {
+          "name": "vault",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
       "outputs": [
         {
-          "name": "states",
-          "type": "tuple[]",
-          "internalType": "struct YieldReceiver.VaultState[]",
+          "name": "state",
+          "type": "tuple",
+          "internalType": "struct YieldReceiver.VaultState",
           "components": [
             {
-              "name": "vault",
-              "type": "address",
-              "internalType": "address"
+              "name": "registered",
+              "type": "bool",
+              "internalType": "bool"
             },
             {
               "name": "stationId",

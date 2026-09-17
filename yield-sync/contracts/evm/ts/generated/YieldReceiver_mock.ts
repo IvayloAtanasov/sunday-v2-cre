@@ -12,7 +12,7 @@ export type YieldReceiverMock = {
   supportsInterface?: (interfaceId: `0x${string}`) => boolean
   vaultAt?: (index: bigint) => `0x${string}`
   vaultCount?: () => bigint
-  vaultStates?: () => readonly { vault: `0x${string}`; stationId: string; phase: number; lastRebasedAt: bigint }[]
+  vaultState?: (vault: `0x${string}`) => { registered: boolean; stationId: string; phase: number; lastRebasedAt: bigint }
   workflowId?: () => `0x${string}`
 } & Pick<ContractMock<typeof YieldReceiverABI>, 'writeReport'>
 
