@@ -18,7 +18,7 @@
 staging-settings:
   user-workflow:
     workflow-name: "yield-sync-staging"
-    deployment-registry: "onchain:ethereum-testnet-sepolia"
+    deployment-registry: "private"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.staging.json"
@@ -29,7 +29,7 @@ staging-settings:
 production-settings:
   user-workflow:
     workflow-name: "yield-sync-production"
-    deployment-registry: "onchain:ethereum-testnet-sepolia"
+    deployment-registry: "onchain:ethereum-mainnet"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.production.json"

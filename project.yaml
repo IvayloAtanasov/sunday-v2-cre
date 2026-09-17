@@ -33,12 +33,12 @@
 # ==========================================================================
 staging-settings:
   rpcs:
-    - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: arc-testnet
+      url: ${ARC_TESTNET_RPC_URL}
 
 # ==========================================================================
 production-settings:
   rpcs:
-    - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: arc-testnet
+      url: ${ARC_TESTNET_RPC_URL}
 
