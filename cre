@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+#
+# Runs the pinned CRE toolchain against this project: `./cre <args>` takes the
+# same arguments as the real CLI, so `./cre workflow simulate yield-sync` and
+# `cre workflow simulate yield-sync` mean the same thing.
+#
+# Docker is the only thing this needs from the host. See README.md.
+#
+# `cre` below is the compose service; everything in "$@" is passed through to
+# the CLI, which is the image's entrypoint.
+set -eu
+
+cd "$(dirname "$0")"
+
+# `login` runs as its own service, which shares the host network so its callback
+# server is reachable from the browser. See docker-compose.yml.
+if [ "${1:-}" = "login" ]; then
+  exec docker compose run --rm login "$@"
+fi
+
+exec docker compose run --rm cre "$@"

@@ -1,0 +1,37 @@
+# Anchor shared by both services; they differ only in networking.
+x-cre: &cre
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: sunday-v2-cre:1.34.0
+  # The project itself is the only thing mounted, so a build can only read
+  # what is committed here.
+  volumes:
+    - .:/work
+    - cre-credentials:/home/bun/.cre
+  # Reads CRE_* and RPC URLs referenced as ${VAR} from project.yaml.
+  env_file:
+    - path: .env
+      required: false
+  stdin_open: true
+  tty: true
+
+services:
+  cre:
+    <<: *cre
+
+  # `cre login` only. It serves the OAuth callback on 127.0.0.1:53682 *inside*
+  # the container, and publishing the port does not help: Docker forwards to the
+  # container's eth0, nothing listens there, and the browser's redirect to
+  # http://localhost:53682/callback is refused. Sharing the host network
+  # namespace makes that loopback the host's own, so the redirect arrives.
+  #
+  # Linux only — on Docker Desktop the host network is the VM's, not the Mac's
+  # or Windows'. There, log in with a host cre install and copy cre.yaml into
+  # the cre-credentials volume.
+  login:
+    <<: *cre
+    network_mode: host
+
+volumes:
+  cre-credentials:

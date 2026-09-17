@@ -1,0 +1,11 @@
+# Build output. Reproducible from the pinned toolchain, so it is not committed;
+# what matters for the frozen workflow ID is bun.lock, which is.
+binary.wasm
+*.wasm
+
+node_modules/
+dist/
+
+# Secrets and RPC URLs referenced as ${VAR} from project.yaml
+.env
+*.env
